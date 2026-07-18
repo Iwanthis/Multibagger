@@ -50,8 +50,11 @@ class DownloadManager:
         Raises:
             DownloadError: If the download fails or returns invalid data.
         """
-        # Automatically append .NS for Indian stocks if not present
-        fetch_symbol = f"{symbol}.NS" if not symbol.endswith(".NS") else symbol
+        # Automatically append .NS for Indian stocks if not present, unless it's an index (starts with ^)
+        if symbol.startswith("^"):
+            fetch_symbol = symbol
+        else:
+            fetch_symbol = f"{symbol}.NS" if not symbol.endswith(".NS") else symbol
         # Ensure save file does not contain .NS
         save_symbol = symbol.replace(".NS", "") if symbol.endswith(".NS") else symbol
         
