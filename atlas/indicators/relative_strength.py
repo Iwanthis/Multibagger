@@ -50,33 +50,32 @@ class RelativeStrengthIndicator(Indicator):
         self._validate_dataframe(data)
         self._validate_dataframe(benchmark_data)
         
-        if len(data) != len(benchmark_data):
-            logger.error(f"Length mismatch: data length {len(data)}, benchmark length {len(benchmark_data)}")
-            raise IndicatorValidationError("Stock data and benchmark data must have equal length.")
-            
-        # Ensure Dates align precisely row by row
-        if not (data["Date"].reset_index(drop=True) == benchmark_data["Date"].reset_index(drop=True)).all():
-            logger.error("Date mismatch between stock data and benchmark data.")
-            raise IndicatorValidationError("Stock data and benchmark data must align by Date.")
-        
         # Do not mutate the original dataframe
         df = data.copy()
         
+        # Align using INNER JOIN on Date
+        aligned = pd.merge(
+            df[["Date", "Close"]], 
+            benchmark_data[["Date", "Close"]], 
+            on="Date", 
+            how="inner", 
+            suffixes=("_stock", "_bench")
+        )
+        
+        # Verify sufficient common trading dates
+        if len(aligned) < (self.period + 1):
+            raise IndicatorValidationError(
+                f"Not enough common trading dates. Need {self.period + 1}, got {len(aligned)}"
+            )
+            
         logger.info(f"Calculating {self.column_name}")
         
-        # Calculate returns
-        stock_return = (df["Close"] / df["Close"].shift(self.period)) - 1
+        # Calculate returns on aligned data
+        stock_return = (aligned["Close_stock"] / aligned["Close_stock"].shift(self.period)) - 1
+        benchmark_return = (aligned["Close_bench"] / aligned["Close_bench"].shift(self.period)) - 1
+        aligned[self.column_name] = stock_return - benchmark_return
         
-        # Reset index on benchmark to ensure perfect alignment when doing math
-        bench_close = benchmark_data["Close"].reset_index(drop=True)
-        benchmark_return = (bench_close / bench_close.shift(self.period)) - 1
-        
-        # Align stock returns using reset index to avoid index mismatch errors
-        stock_return = stock_return.reset_index(drop=True)
-        rs = stock_return - benchmark_return
-        
-        # Assign back using original index
-        rs.index = df.index
-        df[self.column_name] = rs
+        # Merge RS back to the original dataframe preserving its shape
+        df = pd.merge(df, aligned[["Date", self.column_name]], on="Date", how="left")
         
         return df

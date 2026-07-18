@@ -68,23 +68,70 @@ def test_original_dataframe_unchanged(stock_data, benchmark_data):
     assert list(benchmark_data.columns) == original_bench_columns
 
 
-def test_unequal_dataframe_lengths(stock_data, benchmark_data):
-    # Drop one row from benchmark
+def test_stock_longer_than_benchmark(stock_data, benchmark_data):
+    # Benchmark has 9 rows, stock has 10.
     short_benchmark = benchmark_data.drop(9)
-    
     indicator = RelativeStrengthIndicator(period=2)
-    with pytest.raises(IndicatorValidationError, match="equal length"):
-        indicator.calculate(stock_data, short_benchmark)
+    result = indicator.calculate(stock_data, short_benchmark)
+    
+    assert len(result) == len(stock_data)
+    assert "RS2" in result.columns
+    # The last row in stock has no matching benchmark row, so RS2 should be NaN
+    assert pd.isna(result["RS2"].iloc[9])
+    # But row 2 should still be computed correctly
+    assert not pd.isna(result["RS2"].iloc[2])
 
 
-def test_mismatched_dates(stock_data, benchmark_data):
-    # Change one date in benchmark
-    mismatched_benchmark = benchmark_data.copy()
-    mismatched_benchmark.loc[5, "Date"] = pd.Timestamp("2024-01-01")
-    
+def test_benchmark_longer_than_stock(stock_data, benchmark_data):
+    # Stock has 9 rows, benchmark has 10.
+    short_stock = stock_data.drop(9)
     indicator = RelativeStrengthIndicator(period=2)
-    with pytest.raises(IndicatorValidationError, match="align by Date"):
-        indicator.calculate(stock_data, mismatched_benchmark)
+    result = indicator.calculate(short_stock, benchmark_data)
+    
+    assert len(result) == len(short_stock)
+    assert "RS2" in result.columns
+    assert not pd.isna(result["RS2"].iloc[2])
+
+
+def test_missing_trading_dates(stock_data, benchmark_data):
+    # Stock is missing day 2
+    missing_stock = stock_data.drop(2)
+    indicator = RelativeStrengthIndicator(period=2)
+    result = indicator.calculate(missing_stock, benchmark_data)
+    
+    # Missing day 2 means inner join drops day 2.
+    # So the aligned index 2 is actually day 3.
+    # Therefore, day 3 RS2 will be calculated using day 3 and day 0.
+    assert len(result) == len(missing_stock)
+    assert "RS2" in result.columns
+    
+    # Stock day 3 (index 2 in the missing_stock dataframe)
+    # stock Date = '2023-01-04' (day 3), close = 13.0
+    # The shift(2) on aligned data for day 3 points to day 0 (since day 1 is index 1, day 0 is index 0).
+    # wait, aligned data has [Day0, Day1, Day3, Day4...]
+    # so shift(2) for Day3 is Day0.
+    # Stock return = 13.0 / 10.0 - 1 = 0.3
+    # Benchmark return = Day3(106.0) / Day0(100.0) - 1 = 0.06
+    # RS2 = 0.3 - 0.06 = 0.24
+    
+    # We just ensure it calculates successfully without crashing
+    assert not pd.isna(result["RS2"].iloc[2])
+
+
+def test_ipo_stock(stock_data, benchmark_data):
+    # IPO stock only has 2 rows, but period is 2 (requires 3 rows)
+    ipo_stock = stock_data.iloc[-2:]
+    indicator = RelativeStrengthIndicator(period=2)
+    with pytest.raises(IndicatorValidationError, match="Not enough common trading dates"):
+        indicator.calculate(ipo_stock, benchmark_data)
+
+
+def test_successful_alignment(stock_data, benchmark_data):
+    # Exact match
+    indicator = RelativeStrengthIndicator(period=2)
+    result = indicator.calculate(stock_data, benchmark_data)
+    assert not pd.isna(result["RS2"].iloc[2])
+    assert pd.isna(result["RS2"].iloc[0])
 
 
 def test_missing_columns(benchmark_data):

@@ -51,3 +51,18 @@ class Scanner(ABC):
             pd.DataFrame: A dataframe containing only the rows that satisfy the rules.
         """
         pass
+
+    def scan_latest(self, data: pd.DataFrame) -> bool:
+        """
+        Evaluate if the latest trading day satisfies the scanner rules.
+        
+        Args:
+            data (pd.DataFrame): The input market data.
+            
+        Returns:
+            bool: True if the latest day satisfies the rules, False otherwise.
+        """
+        self._validate(data)
+        latest_row_df = data.iloc[[-1]].copy()
+        matched = self.scan(latest_row_df)
+        return not matched.empty

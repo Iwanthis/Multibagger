@@ -23,3 +23,9 @@ EXPORT_DIR = DATA_DIR / "exports"
 LOG_DIR = DATA_DIR / "logs"
 
 SCAN_DIR = DATA_DIR / "scans"
+
+REPORTS_DIR = DATA_DIR / "reports"
+
+HISTORY_DIR = DATA_DIR / "history"
+
+WATCHLISTS_DIR = DATA_DIR / "watchlists"
