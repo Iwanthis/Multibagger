@@ -8,6 +8,7 @@ from .download_manager import (
     DownloadManager,
     DownloadError
 )
+from .universe_provider import UniverseProvider
 
 __all__ = [
     "MarketDataProvider",
@@ -15,5 +16,6 @@ __all__ = [
     "DataNotFoundError",
     "DataValidationError",
     "DownloadManager",
-    "DownloadError"
+    "DownloadError",
+    "UniverseProvider"
 ]
