@@ -24,6 +24,7 @@ from atlas.scanners.momentum import MomentumScanner
 from atlas.scanners.vcp import VCPScanner
 from atlas.ranking.engine import RankingEngine
 from atlas.reporting.report_generator import ReportGenerator
+from atlas.reporting.chart_generator import ChartGenerator
 from atlas.config import settings
 
 logger = logging.getLogger(__name__)
@@ -216,6 +217,36 @@ def scan(universe: str):
             except ValueError:
                 typer.echo(f"\nReports exported:\n{exported_csv}\n{exported_excel}\n{exported_html}")
                 typer.echo(f"History updated:\n{updated_history}")
+                
+            # 6. Generate Charts
+            qualified_stocks = ranked_df[ranked_df["Score"] > 0]
+            if not qualified_stocks.empty:
+                typer.echo(f"\nGenerating charts for {len(qualified_stocks)} qualified stocks...")
+                chart_gen = ChartGenerator()
+                
+                # Format: data/reports/YYYY-MM-DD/charts/
+                chart_dir = settings.REPORTS_DIR / datetime.now().strftime("%Y-%m-%d") / "charts"
+                
+                for sym in qualified_stocks["Symbol"]:
+                    try:
+                        sym_data = data_provider.get(sym)
+                        if sym_data is not None and not sym_data.empty:
+                            # Recalculate indicators required for chart
+                            sym_data = ema20.calculate(sym_data)
+                            sym_data = ema50.calculate(sym_data)
+                            sym_data = ema200.calculate(sym_data)
+                            sym_data = highlow.calculate(sym_data)
+                            
+                            chart_path = chart_dir / f"{sym}.png"
+                            chart_gen.generate_chart(sym_data, sym, chart_path)
+                    except Exception as e:
+                        logger.error(f"Failed to generate chart for {sym}: {e}")
+                
+                try:
+                    typer.echo(f"Charts generated at: {chart_dir.relative_to(settings.PROJECT_ROOT).as_posix()}")
+                except ValueError:
+                    typer.echo(f"Charts generated at: {chart_dir}")
+                    
         except Exception as e:
             logger.error(f"Export failed: {e}")
             typer.echo(f"\nExport failed: {e}")
