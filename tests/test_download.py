@@ -1,4 +1,4 @@
-from multibagger.core.downloader import MarketDataDownloader
+from atlas.core.downloader import MarketDataDownloader
 
 downloader = MarketDataDownloader()
 

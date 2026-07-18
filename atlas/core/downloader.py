@@ -4,8 +4,8 @@ import time
 import yfinance as yf
 from tqdm import tqdm
 
-from multibagger.config.settings import DAILY_DATA_DIR
-from multibagger.core.universe_loader import UniverseLoader
+from atlas.config.settings import DAILY_DATA_DIR
+from atlas.core.universe_loader import UniverseLoader
 
 
 class MarketDataDownloader:

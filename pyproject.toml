@@ -27,10 +27,10 @@ dependencies = [
 ]
 
 [project.scripts]
-multibagger = "multibagger.cli.commands:app"
+multibagger = "atlas.cli.commands:app"
 
 [tool.setuptools]
-packages = ["multibagger"]
+packages = ["atlas"]
 
 [tool.setuptools.package-data]
-multibagger = ["config/*.yaml"]
+atlas = ["config/*.yaml"]

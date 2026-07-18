@@ -1,4 +1,4 @@
-from multibagger.core.universe_loader import UniverseLoader
+from atlas.core.universe_loader import UniverseLoader
 
 loader = UniverseLoader("test")
 

@@ -1,4 +1,4 @@
-from multibagger.core.data_loader import DataLoader
+from atlas.core.data_loader import DataLoader
 
 loader = DataLoader("nifty500")
 

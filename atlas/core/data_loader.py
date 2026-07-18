@@ -1,7 +1,7 @@
 from pathlib import Path
 import pandas as pd
 
-from multibagger.config.settings import UNIVERSE_DIR
+from atlas.config.settings import UNIVERSE_DIR
 
 
 class DataLoader:

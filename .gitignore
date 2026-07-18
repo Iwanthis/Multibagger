@@ -3,25 +3,21 @@
 
 # Python
 __pycache__/
-*.py[cod]
-*.pyo
+*.pyc
 
 # IDE
 .vscode/
 .idea/
 
-# Logs
-*.log
-
-# Output
-output/
-
-# Data Cache
-data/cache/
-
 # OS
 .DS_Store
 Thumbs.db
+
+# Logs
+*.log
+
+# Temporary
+*.tmp
 
 # Build
 dist/
