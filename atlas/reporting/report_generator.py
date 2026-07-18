@@ -351,3 +351,158 @@ class ReportGenerator:
         except Exception as e:
             logger.error(f"Failed to append to scan history: {e}")
             raise ReportError(f"Failed to append to scan history: {e}")
+
+    def export_html(self, report: Dict[str, Any], output_path: Path) -> Path:
+        """
+        Export the daily scan results to a standalone HTML file.
+        
+        Args:
+            report (Dict[str, Any]): The generated report dictionary.
+            output_path (Path): The path where the HTML file should be saved.
+            
+        Returns:
+            Path: The path to the saved HTML file.
+            
+        Raises:
+            ReportError: If exporting fails.
+        """
+        df = report.get("results")
+        if df is None:
+            raise ReportError("Report dictionary is missing 'results' dataframe.")
+            
+        try:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            html_content = [
+                "<!DOCTYPE html>",
+                "<html lang='en'>",
+                "<head>",
+                "<meta charset='UTF-8'>",
+                "<meta name='viewport' content='width=device-width, initial-scale=1.0'>",
+                "<title>Atlas Daily Scan Report</title>",
+                "<style>",
+                "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; color: #333; margin: 0; padding: 20px; }",
+                ".container { max-width: 1400px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }",
+                "h1 { color: #2c3e50; text-align: center; border-bottom: 2px solid #eee; padding-bottom: 10px; }",
+                ".summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }",
+                ".stat-box { background: #f1f3f5; padding: 15px; border-radius: 6px; text-align: center; }",
+                ".stat-title { font-size: 0.9em; color: #6c757d; text-transform: uppercase; font-weight: bold; }",
+                ".stat-value { font-size: 1.5em; font-weight: bold; color: #212529; margin-top: 5px; }",
+                ".table-container { overflow-x: auto; margin-top: 20px; max-height: 70vh; }",
+                "table { width: 100%; border-collapse: collapse; text-align: center; white-space: nowrap; }",
+                "th { position: sticky; top: 0; background-color: #2c3e50; color: #fff; padding: 12px; font-weight: 600; z-index: 1; }",
+                "td { padding: 10px; border-bottom: 1px solid #eee; }",
+                "tr:nth-child(even) { background-color: #f8f9fa; }",
+                "tr:hover { background-color: #e9ecef; }",
+                ".badge { padding: 4px 8px; border-radius: 12px; font-size: 0.85em; font-weight: bold; color: #fff; }",
+                ".badge-true { background-color: #28a745; }",
+                ".badge-false { background-color: #6c757d; }",
+                ".score-green { background-color: #d4edda; color: #155724; font-weight: bold; }",
+                ".score-yellow { background-color: #fff3cd; color: #856404; font-weight: bold; }",
+                ".score-blue { background-color: #cce5ff; color: #004085; font-weight: bold; }",
+                ".score-white { background-color: #fff; color: #333; }",
+                ".empty-msg { text-align: center; padding: 30px; font-size: 1.2em; color: #6c757d; font-style: italic; }",
+                "</style>",
+                "</head>",
+                "<body>",
+                "<div class='container'>",
+                "<h1>Atlas Daily Scan Report</h1>",
+                "<div class='summary-grid'>"
+            ]
+            
+            stats = [
+                ("Scan Date", report.get("date", "")),
+                ("Universe", report.get("universe", "")),
+                ("Stocks Scanned", report.get("stocks_scanned", 0)),
+                ("Qualified Stocks", report.get("qualified", 0)),
+                ("Top Score", report.get("top_score", 0)),
+                ("Average Score", report.get("average_score", 0.0))
+            ]
+            
+            for title, value in stats:
+                html_content.append(f"<div class='stat-box'><div class='stat-title'>{title}</div><div class='stat-value'>{value}</div></div>")
+            
+            html_content.append("</div>")
+            
+            if df.empty or report.get("qualified", 0) == 0:
+                html_content.append("<div class='empty-msg'>No qualifying stocks today.</div>")
+            else:
+                html_content.append("<div class='table-container'>")
+                html_content.append("<table>")
+                
+                target_cols = [
+                    "Rank", "Symbol", "Score", "Institutional", "Momentum", "VCP", 
+                    "MomentumScore", "RVOL20", "RS90", "EMA20", "EMA50", "EMA200", "Close"
+                ]
+                
+                temp_df = df.copy()
+                rename_map = {
+                    "rank": "Rank", "symbol": "Symbol", "score": "Score", 
+                    "institutional": "Institutional", "momentum": "Momentum", "vcp": "VCP"
+                }
+                temp_df = temp_df.rename(columns=rename_map)
+                
+                html_content.append("<tr>")
+                for col in target_cols:
+                    html_content.append(f"<th>{col}</th>")
+                html_content.append("</tr>")
+                
+                # Ensure Score column exists and is numeric to filter properly
+                if "Score" in temp_df.columns:
+                    temp_df["Score"] = pd.to_numeric(temp_df["Score"], errors='coerce').fillna(0)
+                    qualified_df = temp_df[temp_df["Score"] > 0]
+                else:
+                    qualified_df = pd.DataFrame(columns=target_cols)
+                
+                for _, row in qualified_df.iterrows():
+                    html_content.append("<tr>")
+                    for col in target_cols:
+                        val = row.get(col, "")
+                        
+                        if col == "Score":
+                            try:
+                                score_val = float(val) if val != "" else 0
+                                if score_val >= 70:
+                                    css_class = "score-green"
+                                elif score_val >= 40:
+                                    css_class = "score-yellow"
+                                elif score_val >= 1:
+                                    css_class = "score-blue"
+                                else:
+                                    css_class = "score-white"
+                            except ValueError:
+                                css_class = "score-white"
+                                
+                            html_content.append(f"<td class='{css_class}'>{val}</td>")
+                            
+                        elif col in ["Institutional", "Momentum", "VCP"]:
+                            bool_val = bool(val) if val != "" else False
+                            if bool_val:
+                                html_content.append("<td><span class='badge badge-true'>True</span></td>")
+                            else:
+                                html_content.append("<td><span class='badge badge-false'>False</span></td>")
+                                
+                        elif isinstance(val, float):
+                            html_content.append(f"<td>{val:.2f}</td>")
+                            
+                        else:
+                            html_content.append(f"<td>{val}</td>")
+                            
+                    html_content.append("</tr>")
+                    
+                html_content.append("</table>")
+                html_content.append("</div>")
+                
+            html_content.append("</div>")
+            html_content.append("</body>")
+            html_content.append("</html>")
+            
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write("\n".join(html_content))
+                
+            logger.info(f"Report exported to HTML: {output_path}")
+            return output_path
+            
+        except Exception as e:
+            logger.error(f"Failed to export HTML report: {e}")
+            raise ReportError(f"Failed to export HTML report: {e}")

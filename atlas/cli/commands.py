@@ -194,23 +194,27 @@ def scan(universe: str):
         current_date = datetime.now().strftime("%Y%m%d")
         csv_filename = f"multibagger_{current_date}.csv"
         excel_filename = f"multibagger_{current_date}.xlsx"
+        html_filename = f"multibagger_{current_date}.html"
         csv_path = settings.REPORTS_DIR / csv_filename
         excel_path = settings.REPORTS_DIR / excel_filename
+        html_path = settings.REPORTS_DIR / html_filename
         history_path = settings.HISTORY_DIR / "scan_history.csv"
         
         try:
             exported_csv = generator.export_csv(report, csv_path)
             exported_excel = generator.export_excel(report, excel_path)
+            exported_html = generator.export_html(report, html_path)
             updated_history = generator.append_history(report, history_path)
             
             try:
                 rel_csv = exported_csv.relative_to(settings.PROJECT_ROOT)
                 rel_excel = exported_excel.relative_to(settings.PROJECT_ROOT)
+                rel_html = exported_html.relative_to(settings.PROJECT_ROOT)
                 rel_history = updated_history.relative_to(settings.PROJECT_ROOT)
-                typer.echo(f"\nReports exported:\n{rel_csv.as_posix()}\n{rel_excel.as_posix()}")
+                typer.echo(f"\nReports exported:\n{rel_csv.as_posix()}\n{rel_excel.as_posix()}\n{rel_html.as_posix()}")
                 typer.echo(f"History updated:\n{rel_history.as_posix()}")
             except ValueError:
-                typer.echo(f"\nReports exported:\n{exported_csv}\n{exported_excel}")
+                typer.echo(f"\nReports exported:\n{exported_csv}\n{exported_excel}\n{exported_html}")
                 typer.echo(f"History updated:\n{updated_history}")
         except Exception as e:
             logger.error(f"Export failed: {e}")

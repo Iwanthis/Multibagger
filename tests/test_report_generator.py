@@ -281,3 +281,62 @@ def test_append_history_dataframe_unchanged(sample_ranking_df, tmp_path):
     
     generator.append_history(report, history_path)
     pd.testing.assert_frame_equal(sample_ranking_df, original)
+
+
+def test_export_html_success(sample_ranking_df, tmp_path):
+    generator = ReportGenerator()
+    report = generator.generate(sample_ranking_df, universe_name="TestUniverse")
+    html_path = tmp_path / "reports" / "test_report.html"
+    
+    returned_path = generator.export_html(report, html_path)
+    
+    assert returned_path == html_path
+    assert html_path.exists()
+    
+    with open(html_path, 'r', encoding='utf-8') as f:
+        html = f.read()
+        
+    assert "Atlas Daily Scan Report" in html
+    assert "TestUniverse" in html
+    assert "CDSL" in html
+    assert "score-green" in html  # CDSL score 96
+    assert "score-white" in html  # HDFCBANK score 0
+    assert "badge-true" in html   # CDSL Institutional True
+    assert "badge-false" in html  # HDFCBANK Institutional False
+
+
+def test_export_html_empty_report(tmp_path):
+    empty_df = pd.DataFrame(columns=[
+        "Rank", "Symbol", "Score", "Institutional", "Momentum", "VCP"
+    ])
+    generator = ReportGenerator()
+    report = {"results": empty_df, "qualified": 0}
+    
+    html_path = tmp_path / "empty_report.html"
+    generator.export_html(report, html_path)
+    
+    assert html_path.exists()
+    with open(html_path, 'r', encoding='utf-8') as f:
+        html = f.read()
+        
+    assert "No qualifying stocks today" in html
+    assert "<table>" not in html
+
+
+def test_export_html_missing_results(tmp_path):
+    generator = ReportGenerator()
+    report = {}
+    html_path = tmp_path / "fail.html"
+    
+    with pytest.raises(ReportError, match="missing 'results'"):
+        generator.export_html(report, html_path)
+
+
+def test_export_html_dataframe_unchanged(sample_ranking_df, tmp_path):
+    original = sample_ranking_df.copy(deep=True)
+    generator = ReportGenerator()
+    report = generator.generate(sample_ranking_df)
+    html_path = tmp_path / "test_immutability.html"
+    
+    generator.export_html(report, html_path)
+    pd.testing.assert_frame_equal(sample_ranking_df, original)
